@@ -21,15 +21,15 @@ const proxy = new Corrosion({
     standardMiddleware: true
 });
 
-// Add advanced middleware
-middleware.use('request', AdvancedMiddleware.headerCorrection());
-middleware.use('request', AdvancedMiddleware.rateLimiter({
-    windowMs: 60000, // 1 minute
-    maxRequests: 100
-}));
-middleware.use('response', AdvancedMiddleware.securityHeaders());
-middleware.use('response', AdvancedMiddleware.cookieManager());
-middleware.use('response', AdvancedMiddleware.contentTypeDetection());
+// Add advanced middleware (commented out for now to avoid conflicts)
+// middleware.use('request', AdvancedMiddleware.headerCorrection());
+// middleware.use('request', AdvancedMiddleware.rateLimiter({
+//     windowMs: 60000, // 1 minute
+//     maxRequests: 100
+// }));
+// middleware.use('response', AdvancedMiddleware.securityHeaders());
+// middleware.use('response', AdvancedMiddleware.cookieManager());
+// middleware.use('response', AdvancedMiddleware.contentTypeDetection());
 middleware.use('error', AdvancedMiddleware.errorHandler());
 
 // Initialize enhanced rewriter
@@ -192,44 +192,12 @@ async function handleProxyRequest(req, res) {
     };
 
     try {
-        // Execute request middleware
-        await middleware.execute('request', context);
-
-        // Handle the proxy request
-        const originalRequest = proxy.request;
-        proxy.request = async (req, res) => {
-            // Override the original request handler
-            const originalEnd = res.end;
-            res.end = function(data) {
-                // Process response with enhanced rewriter
-                if (data && res.getHeader('content-type')?.includes('text/html')) {
-                    rewriter.rewriteContent(data.toString(), res.getHeader('content-type'), {
-                        sessionId,
-                        targetUrl,
-                        headers: res.getHeaders()
-                    }).then(rewritten => {
-                        originalEnd.call(this, rewritten);
-                    }).catch(error => {
-                        console.error('Rewriting error:', error);
-                        originalEnd.call(this, data);
-                    });
-                } else {
-                    originalEnd.call(this, data);
-                }
-            };
-
-            return originalRequest.call(proxy, req, res);
-        };
-
-        // Execute the proxy request
-        await proxy.request(req, res);
-
-        // Execute response middleware
-        await middleware.execute('response', context);
+        // Use the original proxy request method directly
+        return proxy.request(req, res);
 
     } catch (error) {
         console.error('Proxy request error:', error);
-        await middleware.execute('error', { ...context, error });
+        res.status(500).json({ error: 'Proxy request failed' });
     }
 }
 
