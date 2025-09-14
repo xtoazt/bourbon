@@ -73,7 +73,8 @@ module.exports = async (req, res) => {
 
         // Handle proxy requests with enhanced features
         if (req.url.startsWith(proxy.prefix)) {
-            return handleProxyRequest(req, res);
+            // Let the original proxy handle the request
+            return proxy.request(req, res);
         }
 
         // Handle static files and frontend
@@ -168,38 +169,6 @@ async function handleWebSocket(req, res) {
     return proxy.upgrade(req, res);
 }
 
-// Handle proxy requests with enhanced features
-async function handleProxyRequest(req, res) {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const targetUrl = url.searchParams.get('url');
-    const sessionId = req.headers['x-session-id'];
-
-    if (!targetUrl) {
-        res.status(400).json({ error: 'Target URL required' });
-        return;
-    }
-
-    // Get session if provided
-    const session = sessionId ? sessionManager.getSession(sessionId) : null;
-
-    // Create enhanced context
-    const context = {
-        request: req,
-        response: res,
-        proxyUrl: process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000',
-        session,
-        targetUrl
-    };
-
-    try {
-        // Use the original proxy request method directly
-        return proxy.request(req, res);
-
-    } catch (error) {
-        console.error('Proxy request error:', error);
-        res.status(500).json({ error: 'Proxy request failed' });
-    }
-}
 
 // Handle static requests
 async function handleStaticRequest(req, res) {
